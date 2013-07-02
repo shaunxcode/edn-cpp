@@ -162,22 +162,20 @@ namespace edn {
 
   EdnNode handleAtom(EdnToken token) {
     EdnNode node;
-    node.type = EdnString; // just for debug until rest of valid funcs are working
+    node.type = EdnSymbol; // just for debug until rest of valid funcs are working
     node.line = token.line;
     node.value = token.value;
 
     if (validNil(token.value)) { 
       node.type = EdnNil;
-    } 
-    else if (validSymbol(token.value)) { 
+    } else if (token.type == TokenString) { 
+      node.type = EdnString;
+    } else if (validSymbol(token.value)) { 
       if (token.value.at(0) == ':') {
         node.type = EdnKeyword;
       } else {
         node.type = EdnSymbol; 
       }
-    }
-    else if (token.type == TokenString) { 
-      node.type = EdnString;
     }
     else if (validChar(token.value)) {
       node.type = EdnChar;
@@ -303,6 +301,8 @@ namespace edn {
       }
     } else if (node.type == EdnTagged) { 
       return "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
+    } else if (node.type == EdnString) {
+      return "\"" + node.value + "\"";
     } else {
       return node.value;
     }

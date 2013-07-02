@@ -1,6 +1,8 @@
 #include <list>
 #include <string>
+#include <cstring>
 #include <iostream>
+#include <algorithm>
 namespace edn { 
   using std::cout;
   using std::endl;
@@ -137,6 +139,11 @@ namespace edn {
   }
 
   bool validSymbol(string value) {
+    std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+    if (std::strspn(value.c_str(), "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/") != value.length()) { 
+      cout << "NOT A SYMBOL" << endl;
+      return false;
+    }
     return true;
   }
 
@@ -285,6 +292,7 @@ namespace edn {
   }
 
   string pprint(EdnNode node) {
+    string output;
     if (node.type == EdnList || node.type == EdnSet || node.type == EdnVector || node.type == EdnMap) { 
       string vals = "";
       for (list<EdnNode>::iterator it=node.values.begin(); it != node.values.end(); ++it) {
@@ -294,18 +302,18 @@ namespace edn {
         vals += pprint(*it);
       }
 
-      switch (node.type) { 
-        case EdnList: return "(" + vals + ")";
-        case EdnMap: return "{" + vals + "}";
-        case EdnVector: return "[" + vals + "]"; 
-      }
+      if (node.type == EdnList) output = "(" + vals + ")";
+      else if (node.type == EdnMap) output = "{" + vals + "}";
+      else if (node.type == EdnVector) output = "[" + vals + "]"; 
+      
     } else if (node.type == EdnTagged) { 
-      return "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
+      output = "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
     } else if (node.type == EdnString) {
-      return "\"" + node.value + "\"";
+      output = "\"" + node.value + "\"";
     } else {
-      return node.value;
+      output = node.value;
     }
+    return output;
   }
 
   EdnNode read(string edn) {

@@ -138,13 +138,36 @@ namespace edn {
     return tokens;
   }
 
+  //by default checks if first char is in range of chars
+  bool strRangeIn(string str, const char* range, int start = 0, int stop = 1) {
+    string strRange = str.substr(start, stop);
+    return (std::strspn(strRange.c_str(), range) == strRange.length());
+  }
+
   bool validSymbol(string value) {
+    //first we uppercase the value
+    
     std::transform(value.begin(), value.end(), value.begin(), ::toupper);
-    if (std::strspn(value.c_str(), "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/") != value.length()) { 
-      cout << "NOT A SYMBOL" << endl;
+    if (std::strspn(value.c_str(), "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/") != value.length())
       return false;
-    }
+    
+    //if the value starts with a number that is not ok
+    if (strRangeIn(value, "0123456789"))
+      return false;
+
+    //first char can not start with : # or / - but / by itself is valid
+    if (strRangeIn(value, ":#/") && !(value.length() == 1 && value[0] == '/'))
+      return false;
+
+    //if the first car is - + or . then the next char must NOT be numeric, by by themselves they are valid
+    if (strRangeIn(value, "-+.") && value.length() > 1 && strRangeIn(value, "0123456789", 1))
+      return false;
+
     return true;
+  }
+
+  bool validKeyword(string value) { 
+    return (value[0] == ':' && validSymbol(value.substr(1,value.length() - 1)));
   }
 
   bool validNil(string value) {
@@ -156,7 +179,10 @@ namespace edn {
   }
 
   bool validInt(string value) {
-    return false;
+    if (std::strspn(value.c_str(), "0123456789") != value.length())
+      return false;
+
+    return true;
   }
 
   bool validFloat(string value) {
@@ -169,7 +195,6 @@ namespace edn {
 
   EdnNode handleAtom(EdnToken token) {
     EdnNode node;
-    node.type = EdnSymbol; // just for debug until rest of valid funcs are working
     node.line = token.line;
     node.value = token.value;
 
@@ -177,24 +202,20 @@ namespace edn {
       node.type = EdnNil;
     } else if (token.type == TokenString) { 
       node.type = EdnString;
+    } else if (validKeyword(token.value)) {
+      node.type = EdnKeyword;
     } else if (validSymbol(token.value)) { 
-      if (token.value.at(0) == ':') {
-        node.type = EdnKeyword;
-      } else {
-        node.type = EdnSymbol; 
-      }
-    }
-    else if (validChar(token.value)) {
+      node.type = EdnSymbol; 
+    } else if (validChar(token.value)) {
       node.type = EdnChar;
-    }
-    else if (validBool(token.value)) { 
+    } else if (validBool(token.value)) { 
       node.type = EdnBool;
-    }
-    else if (validInt(token.value)) {
+    } else if (validInt(token.value)) {
       node.type = EdnInt;
-    }
-    else if (validFloat(token.value)) {
+    } else if (validFloat(token.value)) {
       node.type = EdnFloat;
+    } else {
+      throw "Could not parse atom ";
     } 
 
     return node;
@@ -237,7 +258,7 @@ namespace edn {
     }
   
     if (!validSymbol(tagName)) {
-      throw "Invalid tag name at line: "; 
+      throw "Invalid tag name"; 
     }
 
     EdnToken symToken;
@@ -311,7 +332,20 @@ namespace edn {
     } else if (node.type == EdnString) {
       output = "\"" + node.value + "\"";
     } else {
-      output = node.value;
+      output = "<";
+      switch (node.type) { 
+        case EdnSymbol: output += "EdnSymbol"; break;
+        case EdnKeyword: output += "EdnKeyword"; break;
+        case EdnInt: output += "EdnInt"; break;
+        case EdnFloat: output += "EdnFloat"; break;
+        case EdnChar: output += "EdnChar"; break;
+        case EdnBool: output += "EdnBool"; break;
+        case EdnNil: output += "EdnNil"; break;
+        case EdnString: output += "EdnString"; break;
+        case EdnTagged: output += "EdnTagged"; break;
+        default: output += "Other"; break;
+      }
+      output += " " + node.value + ">";
     }
     return output;
   }

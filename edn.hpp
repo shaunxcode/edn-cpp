@@ -109,13 +109,12 @@ namespace edn {
         if (token != "") { 
           createToken(TokenAtom, line, token, tokens);
           token = "";
-        } else {
-          if (*it == '(' || *it == ')' || *it == '[' || *it == ']' || *it == '{' || *it == '}') {
-            paren = "";
-            paren += *it;
-            createToken(TokenParen, line, paren, tokens);
-          }
         } 
+        if (*it == '(' || *it == ')' || *it == '[' || *it == ']' || *it == '{' || *it == '}') {
+          paren = "";
+          paren += *it;
+          createToken(TokenParen, line, paren, tokens);
+        }
       } else {
         if (escaping) { 
           escaping = false;
@@ -166,7 +165,6 @@ namespace edn {
     node.type = EdnString; // just for debug until rest of valid funcs are working
     node.line = token.line;
     node.value = token.value;
-    cout << "EDN TOKEN " << token.value << endl;
 
     if (validNil(token.value)) { 
       node.type = EdnNil;
@@ -192,7 +190,7 @@ namespace edn {
     }
     else if (validFloat(token.value)) {
       node.type = EdnFloat;
-    }
+    } 
 
     return node;
   }
@@ -203,15 +201,12 @@ namespace edn {
     node.values = values;
 
     if (token.value == "(") {
-      cout << "GOT A LIST" << endl;
       node.type = EdnList;
     }
     else if (token.value == "[") {
-      cout << "GOT A VECTOR" << endl;
       node.type = EdnVector;
     }
     if (token.value == "{") {
-      cout << "GOT A MAP" << endl;
       node.type = EdnMap;
     }
     return node;
@@ -224,10 +219,8 @@ namespace edn {
     string tagName = token.value.substr(1, token.value.length() - 2);
 
     if (tagName == "_") {
-      cout << "DISCARD" << endl;
       node.type = EdnDiscard;
     } else if (tagName == "") {
-      cout << "SET" << endl;
       //special case where we return early as # { is a set - thus tagname is empty
       node.type = EdnSet;
       if (value.type != EdnMap) {
@@ -236,7 +229,6 @@ namespace edn {
       node.values = value.values;
       return node;
     } else {
-      cout << "EDN TAGGED: " << tagName << endl;
       node.type = EdnTagged;
     }
   
@@ -273,8 +265,6 @@ namespace edn {
       if (token.value == "[") closeParen = "]"; 
       if (token.value == "{") closeParen = "}"; 
 
-      cout << "GOT PAREN " << token.value << " MATCH WITH " << closeParen << endl;
-
       while (true) {
         if (tokens.empty()) throw "unexpected end of list";
 
@@ -297,9 +287,29 @@ namespace edn {
     }
   }
 
+  string pprint(EdnNode node) {
+    if (node.type == EdnList || node.type == EdnSet || node.type == EdnVector || node.type == EdnMap) { 
+      string vals = "";
+      for (list<EdnNode>::iterator it=node.values.begin(); it != node.values.end(); ++it) {
+        if (vals.length() > 0) { 
+          vals += " ";
+        } 
+        vals += pprint(*it);
+      }
+
+      switch (node.type) { 
+        case EdnList: return "(" + vals + ")";
+        case EdnMap: return "{" + vals + "}";
+        case EdnVector: return "[" + vals + "]"; 
+      }
+    } else {
+      return node.value;
+    }
+  }
+
   EdnNode read(string edn) {
     list<EdnToken> tokens = lex(edn);
-
+    
     if (tokens.size() == 0) {
       throw "No parsable tokens found in string";
     }

@@ -137,7 +137,7 @@ namespace edn {
   }
 
   bool validSymbol(string value) {
-    return false;
+    return true;
   }
 
   bool validNil(string value) {
@@ -216,8 +216,7 @@ namespace edn {
     EdnNode node;
     node.line = token.line;
 
-    string tagName = token.value.substr(1, token.value.length() - 2);
-
+    string tagName = token.value.substr(1, token.value.length() - 1);
     if (tagName == "_") {
       node.type = EdnDiscard;
     } else if (tagName == "") {
@@ -302,6 +301,8 @@ namespace edn {
         case EdnMap: return "{" + vals + "}";
         case EdnVector: return "[" + vals + "]"; 
       }
+    } else if (node.type == EdnTagged) { 
+      return "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
     } else {
       return node.value;
     }

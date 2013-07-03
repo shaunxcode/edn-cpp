@@ -55,6 +55,27 @@ namespace edn {
     tokens.push_back(token);
   }
 
+  string typeToString(NodeType type) { 
+    string output;
+    switch (type) { 
+      case EdnSymbol:  output = "EdnSymbol";   break;
+      case EdnKeyword: output = "EdnKeyword";  break;
+      case EdnInt:     output = "EdnInt";      break;
+      case EdnFloat:   output = "EdnFloat";    break;
+      case EdnChar:    output = "EdnChar";     break;
+      case EdnBool:    output = "EdnBool";     break;
+      case EdnNil:     output = "EdnNil";      break;
+      case EdnString:  output = "EdnString";   break;
+      case EdnTagged:  output = "EdnTagged";   break;
+      case EdnList:    output = "EdnList";     break;
+      case EdnVector:  output = "EdnVector";   break;
+      case EdnSet:     output = "EdnSet";      break;
+      case EdnMap:     output = "EdnMap";      break;
+      case EdnDiscard: output = "EdnDiscard";  break;
+    }
+    return output;
+  }
+
   //by default checks if first char is in range of chars
   bool strRangeIn(string str, const char* range, int start = 0, int stop = 1) {
     string strRange = str.substr(start, stop);
@@ -389,13 +410,7 @@ namespace edn {
       else if (node.type == EdnVector) output = "[" + vals + "]"; 
      
       #ifdef DEBUG
-        switch (node.type) { 
-          case EdnList: output = "<EdnList " + output + ">"; break;
-          case EdnMap: output = "<EdnMap " + output + ">"; break;
-          case EdnVector: output = "<EdnVector " + output + ">"; break;
-          default: output = "<OTHER? " + output + ">"; break;
-        }
-        return output;
+        return "<" + typeToString(node.type) + " " + output + ">"; 
       #endif 
     } else if (node.type == EdnTagged) {
       output = "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
@@ -409,20 +424,7 @@ namespace edn {
       #endif
     } else {
       #ifdef DEBUG
-        output = "<";
-        switch (node.type) { 
-          case EdnSymbol: output += "EdnSymbol"; break;
-          case EdnKeyword: output += "EdnKeyword"; break;
-          case EdnInt: output += "EdnInt"; break;
-          case EdnFloat: output += "EdnFloat"; break;
-          case EdnChar: output += "EdnChar"; break;
-          case EdnBool: output += "EdnBool"; break;
-          case EdnNil: output += "EdnNil"; break;
-          case EdnString: output += "EdnString"; break;
-          case EdnTagged: output += "EdnTagged"; break;
-          default: output += "Other"; break;
-        }
-        return output + " " + node.value + ">";
+        return "<" + typeToString(node.type) + " " + node.value + ">";
       #endif
 
       output = node.value;

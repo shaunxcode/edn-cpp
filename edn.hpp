@@ -55,6 +55,11 @@ namespace edn {
     tokens.push_back(token);
   }
 
+  //by default checks if first char is in range of chars
+  bool strRangeIn(string str, const char* range, int start = 0, int stop = 1) {
+    string strRange = str.substr(start, stop);
+    return (std::strspn(strRange.c_str(), range) == strRange.length());
+  }
 
   list<EdnToken> lex(string edn) {
     string::iterator it;
@@ -107,7 +112,7 @@ namespace edn {
         }
         stringContent += *it;   
       } else if (*it == '(' || *it == ')' || *it == '[' || *it == ']' || *it == '{' || 
-                 *it == '}' || *it == '\t' || *it == '\n' || *it == '\r' || * it == ' ') {
+                 *it == '}' || *it == '\t' || *it == '\n' || *it == '\r' || *it == ' ' || *it == ',') {
         if (token != "") { 
           createToken(TokenAtom, line, token, tokens);
           token = "";
@@ -138,16 +143,14 @@ namespace edn {
     return tokens;
   }
 
-  //by default checks if first char is in range of chars
-  bool strRangeIn(string str, const char* range, int start = 0, int stop = 1) {
-    string strRange = str.substr(start, stop);
-    return (std::strspn(strRange.c_str(), range) == strRange.length());
+  void uppercase(string &str) { 
+    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
   }
 
   bool validSymbol(string value) {
     //first we uppercase the value
-    
-    std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+    uppercase(value);
+
     if (std::strspn(value.c_str(), "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/") != value.length())
       return false;
     
@@ -161,6 +164,9 @@ namespace edn {
 
     //if the first car is - + or . then the next char must NOT be numeric, by by themselves they are valid
     if (strRangeIn(value, "-+.") && value.length() > 1 && strRangeIn(value, "0123456789", 1))
+      return false;
+
+    if (std::count(value.begin(), value.end(), '/') > 1)
       return false;
 
     return true;
@@ -178,7 +184,15 @@ namespace edn {
     return (value == "true" || value == "false");
   }
 
-  bool validInt(string value) {
+  bool validInt(string value, bool allowSign = true) {
+    //if we have a positive or negative symbol that is ok but remove it for testing
+    if (strRangeIn(value, "-+") && value.length() > 1 && allowSign) 
+      value = value.substr(1, value.length() - 1); 
+
+    //if string ends with N or M that is ok, but remove it for testing
+    if (strRangeIn(value, "NM", value.length() - 1, 1))
+      value = value.substr(0, value.length() - 2); 
+
     if (std::strspn(value.c_str(), "0123456789") != value.length())
       return false;
 
@@ -186,6 +200,38 @@ namespace edn {
   }
 
   bool validFloat(string value) {
+    uppercase(value); 
+
+    string front;
+    string back;
+    int epos;
+    int periodPos = value.find_first_of('.');
+    if (periodPos) {
+      front = value.substr(0, periodPos);
+      back = value.substr(periodPos + 1);
+    } else {
+      front = "";
+      back = value;
+    }
+    
+    if(front == "" || validInt(front)) { 
+      epos = back.find_first_of('E');
+      if(epos > -1) { 
+        //ends with E which is invalid
+        if ((unsigned)epos == back.length() - 1) return false;
+
+        //both the decimal and exponent should be valid - do not allow + or - on dec (pass false as arg to validInt)
+        if (!validInt(back.substr(0, epos), false) || !validInt(back.substr(epos + 1))) return false;
+      } else { 
+        //if back ends with M remove for validation
+        if (strRangeIn(back, "M", back.length() - 1, 1)) 
+          back = back.substr(0, back.length() - 1);
+     
+        if (!validInt(back, false)) return false;
+      }
+      return true; 
+    }
+  
     return false;
   }
 
@@ -198,25 +244,24 @@ namespace edn {
     node.line = token.line;
     node.value = token.value;
 
-    if (validNil(token.value)) { 
+    if (validNil(token.value))
       node.type = EdnNil;
-    } else if (token.type == TokenString) { 
+    else if (token.type == TokenString) 
       node.type = EdnString;
-    } else if (validKeyword(token.value)) {
-      node.type = EdnKeyword;
-    } else if (validSymbol(token.value)) { 
-      node.type = EdnSymbol; 
-    } else if (validChar(token.value)) {
+    else if (validChar(token.value))
       node.type = EdnChar;
-    } else if (validBool(token.value)) { 
+    else if (validBool(token.value))
       node.type = EdnBool;
-    } else if (validInt(token.value)) {
+    else if (validInt(token.value))
       node.type = EdnInt;
-    } else if (validFloat(token.value)) {
+    else if (validFloat(token.value))
       node.type = EdnFloat;
-    } else {
-      throw "Could not parse atom ";
-    } 
+    else if (validKeyword(token.value))
+      node.type = EdnKeyword;
+    else if (validSymbol(token.value))
+      node.type = EdnSymbol;
+    else
+      throw "Could not parse atom";
 
     return node;
   }
@@ -312,6 +357,22 @@ namespace edn {
     }
   }
 
+  string escapeQuotes(const string &before) {
+    string after;
+    after.reserve(before.length() + 4); 
+    
+    for (string::size_type i = 0; i < before.length(); ++i) { 
+      switch (before[i]) { 
+        case '"':
+        case '\\':
+          after += '\\';
+        default:
+          after += before[i];
+      }
+    }
+    return after;
+  }
+
   string pprint(EdnNode node) {
     string output;
     if (node.type == EdnList || node.type == EdnSet || node.type == EdnVector || node.type == EdnMap) { 
@@ -326,26 +387,45 @@ namespace edn {
       if (node.type == EdnList) output = "(" + vals + ")";
       else if (node.type == EdnMap) output = "{" + vals + "}";
       else if (node.type == EdnVector) output = "[" + vals + "]"; 
-      
-    } else if (node.type == EdnTagged) { 
+     
+      #ifdef DEBUG
+        switch (node.type) { 
+          case EdnList: output = "<EdnList " + output + ">"; break;
+          case EdnMap: output = "<EdnMap " + output + ">"; break;
+          case EdnVector: output = "<EdnVector " + output + ">"; break;
+          default: output = "<OTHER? " + output + ">"; break;
+        }
+        return output;
+      #endif 
+    } else if (node.type == EdnTagged) {
       output = "#" + pprint(node.values.front()) + " " + pprint(node.values.back());
+      #ifdef DEBUG
+        return "<EdnTagged " + output + ">";
+      #endif
     } else if (node.type == EdnString) {
-      output = "\"" + node.value + "\"";
+      output = "\"" + escapeQuotes(node.value) + "\"";
+      #ifdef DEBUG
+        return "<EdnString " + output + ">";
+      #endif
     } else {
-      output = "<";
-      switch (node.type) { 
-        case EdnSymbol: output += "EdnSymbol"; break;
-        case EdnKeyword: output += "EdnKeyword"; break;
-        case EdnInt: output += "EdnInt"; break;
-        case EdnFloat: output += "EdnFloat"; break;
-        case EdnChar: output += "EdnChar"; break;
-        case EdnBool: output += "EdnBool"; break;
-        case EdnNil: output += "EdnNil"; break;
-        case EdnString: output += "EdnString"; break;
-        case EdnTagged: output += "EdnTagged"; break;
-        default: output += "Other"; break;
-      }
-      output += " " + node.value + ">";
+      #ifdef DEBUG
+        output = "<";
+        switch (node.type) { 
+          case EdnSymbol: output += "EdnSymbol"; break;
+          case EdnKeyword: output += "EdnKeyword"; break;
+          case EdnInt: output += "EdnInt"; break;
+          case EdnFloat: output += "EdnFloat"; break;
+          case EdnChar: output += "EdnChar"; break;
+          case EdnBool: output += "EdnBool"; break;
+          case EdnNil: output += "EdnNil"; break;
+          case EdnString: output += "EdnString"; break;
+          case EdnTagged: output += "EdnTagged"; break;
+          default: output += "Other"; break;
+        }
+        return output + " " + node.value + ">";
+      #endif
+
+      output = node.value;
     }
     return output;
   }

@@ -394,15 +394,19 @@ namespace edn {
     return after;
   }
 
-  string pprint(EdnNode node) {
+  string pprint(EdnNode node, int indent = 1) {
+    string prefix("");
+    if (indent) {
+      prefix.insert(0, indent, ' ');
+    }
+
     string output;
     if (node.type == EdnList || node.type == EdnSet || node.type == EdnVector || node.type == EdnMap) { 
       string vals = "";
       for (list<EdnNode>::iterator it=node.values.begin(); it != node.values.end(); ++it) {
-        if (vals.length() > 0) { 
-          vals += " ";
-        } 
-        vals += pprint(*it);
+        if (vals.length() > 0) vals += prefix;
+        vals += pprint(*it, indent + 1);
+        if (std::distance(it, node.values.end()) != 1) vals += "\n";
       }
 
       if (node.type == EdnList) output = "(" + vals + ")";

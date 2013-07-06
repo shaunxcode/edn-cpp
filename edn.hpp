@@ -150,7 +150,7 @@ namespace edn {
           escaping = true;
         }
 
-        if (token == "#_") {
+        if (token == "#_" || (token.length() == 2 && token[0] == escapeChar)) {
           createToken(TokenAtom, line, token, tokens); 
           token = "";
         }
@@ -394,7 +394,7 @@ namespace edn {
     return after;
   }
 
-  string pprint(EdnNode node, int indent = 1) {
+  string pprint(EdnNode &node, int indent = 1) {
     string prefix("");
     if (indent) {
       prefix.insert(0, indent, ' ');
@@ -406,12 +406,17 @@ namespace edn {
       for (list<EdnNode>::iterator it=node.values.begin(); it != node.values.end(); ++it) {
         if (vals.length() > 0) vals += prefix;
         vals += pprint(*it, indent + 1);
+        if (node.type == EdnMap) { 
+          ++it;
+          vals += " " + pprint(*it, 1);
+        }
         if (std::distance(it, node.values.end()) != 1) vals += "\n";
       }
 
       if (node.type == EdnList) output = "(" + vals + ")";
-      else if (node.type == EdnMap) output = "{" + vals + "}";
-      else if (node.type == EdnVector) output = "[" + vals + "]"; 
+      else if (node.type == EdnVector) output = "[" + vals + "]";
+      else if (node.type == EdnMap) output = "{" + vals + "}"; 
+      else if (node.type == EdnSet) output = "#{" + vals + "}";
      
       #ifdef DEBUG
         return "<" + typeToString(node.type) + " " + output + ">"; 

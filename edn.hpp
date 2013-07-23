@@ -9,6 +9,7 @@ namespace edn {
   using std::string;
   using std::list;
 
+  string validSymbolChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/";
   enum TokenType {
     TokenString,
     TokenAtom,
@@ -172,7 +173,7 @@ namespace edn {
     //first we uppercase the value
     uppercase(value);
 
-    if (std::strspn(value.c_str(), "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.*+!-_?$%&=:#/") != value.length())
+    if (std::strspn(value.c_str(), validSymbolChars.c_str()) != value.length())
       return false;
     
     //if the value starts with a number that is not ok
@@ -370,7 +371,7 @@ namespace edn {
     } else if (token.value == ")" || token.value == "]" || token.value == "}") {
       throw "Unexpected " + token.value;
     } else {
-      if (token.value.at(0) == '#') {
+      if (token.value.size() && token.value.at(0) == '#') {
         return handleTagged(token, readAhead(shiftToken(tokens), tokens));
       } else {
         return handleAtom(token);

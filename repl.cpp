@@ -5,6 +5,7 @@
 #include <sstream>
 
 int main() {
+  edn::validSymbolChars += "<>'";
   std::string ednString;
   while (true) { 
     std::cout << "edn> ";
